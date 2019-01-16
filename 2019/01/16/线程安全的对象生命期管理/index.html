@@ -96,21 +96,25 @@
 
 
 
-  <meta name="keywords" content="C++">
-<meta property="og:type" content="website">
-<meta property="og:title" content="ZhouDaxia&#39;s Blog">
-<meta property="og:url" content="http://www.zhoudaxia.com/index.html">
+  <meta name="description" content="编写线程安全的类，用同步原语（synchronization primitives）保护内部状态即可。但是对象的生死状态不能由对象自身拥有的mutex（互斥器）来保护。 多线程下的对象的销毁时机可能会出现多种竞态条件（race condition）： 1231. 在即将析构一个对象时，从何而知此刻是否有别的线程正在执行该对象的成员函数2. 如何保证在执行成员函数期间，对象不会在另一个线程被析构3">
+<meta name="keywords" content="C++">
+<meta property="og:type" content="article">
+<meta property="og:title" content="线程安全的对象生命期管理">
+<meta property="og:url" content="http://www.zhoudaxia.com/2019/01/16/线程安全的对象生命期管理/index.html">
 <meta property="og:site_name" content="ZhouDaxia&#39;s Blog">
+<meta property="og:description" content="编写线程安全的类，用同步原语（synchronization primitives）保护内部状态即可。但是对象的生死状态不能由对象自身拥有的mutex（互斥器）来保护。 多线程下的对象的销毁时机可能会出现多种竞态条件（race condition）： 1231. 在即将析构一个对象时，从何而知此刻是否有别的线程正在执行该对象的成员函数2. 如何保证在执行成员函数期间，对象不会在另一个线程被析构3">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2019-01-16T01:43:33.870Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="ZhouDaxia&#39;s Blog">
+<meta name="twitter:title" content="线程安全的对象生命期管理">
+<meta name="twitter:description" content="编写线程安全的类，用同步原语（synchronization primitives）保护内部状态即可。但是对象的生死状态不能由对象自身拥有的mutex（互斥器）来保护。 多线程下的对象的销毁时机可能会出现多种竞态条件（race condition）： 1231. 在即将析构一个对象时，从何而知此刻是否有别的线程正在执行该对象的成员函数2. 如何保证在执行成员函数期间，对象不会在另一个线程被析构3">
 
 
 
 
 
 
-  <link rel="canonical" href="http://www.zhoudaxia.com/">
+  <link rel="canonical" href="http://www.zhoudaxia.com/2019/01/16/线程安全的对象生命期管理/">
 
 
 
@@ -120,7 +124,7 @@
   };
 </script>
 
-  <title>ZhouDaxia's Blog</title>
+  <title>线程安全的对象生命期管理 | ZhouDaxia's Blog</title>
   
 
 
@@ -168,8 +172,7 @@
     
   
 
-  <div class="container sidebar-position-left 
-  page-home">
+  <div class="container sidebar-position-left page-post-detail">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
@@ -207,7 +210,7 @@
         
         
           
-          <li class="menu-item menu-item-home menu-item-active">
+          <li class="menu-item menu-item-home">
 
     
     
@@ -269,9 +272,9 @@
           
           <div id="content" class="content">
             
-  <section id="posts" class="posts-expand">
+
+  <div id="posts" class="posts-expand">
     
-      
 
   
 
@@ -303,10 +306,8 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">
-                
-                
-                <a href="/2019/01/16/线程安全的对象生命期管理/" class="post-title-link" itemprop="url">线程安全的对象生命期管理</a>
+          <h1 class="post-title" itemprop="name headline">线程安全的对象生命期管理
+
               
             
           </h1>
@@ -381,9 +382,7 @@
       
 
       
-        
-          
-            <ul>
+        <ul>
 <li>编写线程安全的类，用同步原语（synchronization primitives）保护内部状态即可。但是对象的生死状态不能由对象自身拥有的mutex（互斥器）来保护。</li>
 <li><p>多线程下的对象的销毁时机可能会出现多种竞态条件（race condition）：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1. 在即将析构一个对象时，从何而知此刻是否有别的线程正在执行该对象的成员函数</span><br><span class="line">2. 如何保证在执行成员函数期间，对象不会在另一个线程被析构</span><br><span class="line">3. 在调用某个对象的成员函数之前，如何得知这个对象还活着？它的析构函数会不会碰巧执行到一半？</span><br></pre></td></tr></table></figure>
@@ -463,8 +462,6 @@
 <li>只要有一个指向x对象的shared_ptr存在，该对象就不会析构。如果不小心遗留了一个拷贝，那么对象就会永远存在了。</li>
 </ul>
 
-          
-        
       
     </div>
 
@@ -485,18 +482,23 @@
 
     <div>
   
+    
+<div style="text-align:center;color: #ccc;font-size:14px;">
+------ 本文结束 ------</div>
+
+  
 </div>
 
     <footer class="post-footer">
       
 
       
+      
+      
 
       
 
       
-      
-        <div class="post-eof"></div>
       
     </footer>
   </div>
@@ -506,14 +508,15 @@
   </article>
 
 
-    
-  </section>
-
-  
+  </div>
 
 
           </div>
           
+
+  
+
+
 
         </div>
         
@@ -534,8 +537,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Übersicht
+          </li>
+        </ul>
+      
 
-      <div class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <div class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
             
@@ -605,6 +617,23 @@
         </div>
       </div>
 
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#boost的noncopyable"><span class="nav-number">1.</span> <span class="nav-text">boost的noncopyable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mutable关键字"><span class="nav-number">2.</span> <span class="nav-text">mutable关键字</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一个线程安全的Counter示例"><span class="nav-number">3.</span> <span class="nav-text">一个线程安全的Counter示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#做到线程安全的对象构造——在构造期间不要泄露this指针"><span class="nav-number">4.</span> <span class="nav-text">做到线程安全的对象构造——在构造期间不要泄露this指针</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#C-可能遇到的内存问题"><span class="nav-number">5.</span> <span class="nav-text">C++可能遇到的内存问题</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
       
 
       
@@ -734,6 +763,10 @@
 
 
   
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
 
   
 
@@ -744,6 +777,8 @@
 
   
 
+
+  
 
 
   

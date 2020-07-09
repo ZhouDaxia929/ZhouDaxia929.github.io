@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="借助 shared_ptr 来编写线程安全的类">
+<meta name="keywords" content="Linux,Thread">
+<meta property="og:type" content="article">
+<meta property="og:title" content="线程安全的对象生命期管理">
+<meta property="og:url" content="http://www.zhoudaxia.com/Linux/线程安全的对象生命期管理/index.html">
+<meta property="og:site_name" content="ZhouDaxia&#39;s Blog">
+<meta property="og:description" content="借助 shared_ptr 来编写线程安全的类">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2020-07-09T13:06:47.083Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="线程安全的对象生命期管理">
+<meta name="twitter:description" content="借助 shared_ptr 来编写线程安全的类">
+
+
+
+
+
+
+  <link rel="canonical" href="http://www.zhoudaxia.com/Linux/线程安全的对象生命期管理/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>线程安全的对象生命期管理 | ZhouDaxia's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">ZhouDaxia's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>Startseite</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archiv</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>Suche</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="Searching..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://www.zhoudaxia.com/Linux/线程安全的对象生命期管理/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="ZhouDaxia">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="ZhouDaxia's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">线程安全的对象生命期管理
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+
+              
+                
+              
+
+              <time title="Post created: 2020-01-16 09:42:42" itemprop="dateCreated datePublished" datetime="2020-01-16T09:42:42+08:00">2020-01-16</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Updated at: 2020-07-09 21:06:47" itemprop="dateModified" datetime="2020-07-09T21:06:47+08:00">2020-07-09</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">in</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+          
+
+          
+          
+            <span id="/Linux/线程安全的对象生命期管理/" class="leancloud_visitors" data-flag-title="线程安全的对象生命期管理">
+              <span class="post-meta-divider">|</span>
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Views: </span>
+              
+                <span class="leancloud-visitors-count"></span>
+            </span>
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             Views:  
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>借助 shared_ptr 来编写线程安全的类<br><a id="more"></a></p>
+<ul>
+<li>编写线程安全的类，用同步原语（synchronization primitives）保护内部状态即可。但是对象的生死状态不能由对象自身拥有的mutex（互斥器）来保护。</li>
+<li><p>多线程下的对象的销毁时机可能会出现多种竞态条件（race condition）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1. 在即将析构一个对象时，从何而知此刻是否有别的线程正在执行该对象的成员函数</span><br><span class="line">2. 如何保证在执行成员函数期间，对象不会在另一个线程被析构</span><br><span class="line">3. 在调用某个对象的成员函数之前，如何得知这个对象还活着？它的析构函数会不会碰巧执行到一半？</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>解决办法，尝试使用shared_ptr</p>
+</li>
+<li>一个线程安全的类：多个线程同时、不管什么顺序执行、不管系统怎么调度都能正确执行，且调用端不需同步或其他协调动作。<h3 id="boost的noncopyable"><a href="#boost的noncopyable" class="headerlink" title="boost的noncopyable"></a>boost的noncopyable</h3></li>
+<li>允许程序轻松实现一个不可复制的类。</li>
+<li><p>需要的头文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#include&lt;boost/noncopyable.hpp&gt;     </span><br><span class="line">或</span><br><span class="line">#include&lt;boost/utility.hpp&gt;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>在c++定义一个类时，如果不明确定义复制构造函数和复制赋值操作符，编译器会为我们自动生成这两个函数。</p>
+</li>
+<li><p>例如<figure class="highlight plain"><figcaption><span>empty_class&#123; &#125;;```实际上是：</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">```</span><br><span class="line">class empty_class&#123;</span><br><span class="line">public:</span><br><span class="line">    empty_class(const empty_class &amp;)&#123;...&#125;</span><br><span class="line">    empty_class &amp; operator=(const empty_class &amp;)&#123;...&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+</li>
+<li><p>但有时候我们不要类的复制语义，希望禁止复制类的实现。比较常见的做法就是私有化复制构造函数和赋值操作符:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">class do_not_copy&#123;</span><br><span class="line">private:</span><br><span class="line">    do_not_copy(const do_not_copy &amp;);</span><br><span class="line">    void operator=(const do_not_copy &amp;);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>但是如果存在大量的类似这种类，重复写代码很麻烦，noncopyable为实现不可复制的类提供了简单清晰的解决方案：从 boost::noncopyable 派生即可。这里使用默认的私有继承是允许的，显示的写出private或public修饰词也可以，效果相同。我们定义的子类会自动私有化父类noncopyable的复制构造函数，从而禁止用户从外部访问复制构造函数和复制赋值函数。</p>
+</li>
+<li>class noncopyable的基本思想是把构造函数和析构函数设置protected权限，这样子类可以调用，但是外面的类不能调用，那么当子类需要定义构造函数的时候不至于通不过编译。但是最关键的是noncopyable把复制构造函数和复制赋值函数做成了private，这就意味着除非子类定义自己的copy构造和赋值函数，否则在子类没有定义的情况下，外面的调用者是不能够通过赋值和copy构造等手段来产生一个新的子类对象的。<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &lt;boost/utility.hpp&gt;</span><br><span class="line">#include &lt;boost/noncopyable.hpp&gt;</span><br><span class="line"></span><br><span class="line">using namespace std;</span><br><span class="line">using namespace boost;</span><br><span class="line"></span><br><span class="line">class student : boost::noncopyable&#123;</span><br><span class="line">public:</span><br><span class="line">    student(int _id):id(_id)&#123;&#125;;</span><br><span class="line">    int print()&#123;</span><br><span class="line">        return id;</span><br><span class="line">    &#125;</span><br><span class="line">private:</span><br><span class="line">    int id;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">int main()&#123;</span><br><span class="line">    student st(100);</span><br><span class="line">    cout &lt;&lt; st.print() &lt;&lt; endl;</span><br><span class="line">    //student scopy(st); //此处应该出错</span><br><span class="line">    //cout &lt;&lt; scopy.print() &lt;&lt; endl;</span><br><span class="line">    return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h3 id="mutable关键字"><a href="#mutable关键字" class="headerlink" title="mutable关键字"></a>mutable关键字</h3><ul>
+<li>在C++中，mutable也是为了突破const的限制而设置的。被mutable修饰的变量，将永远处于可变的状态，即使在一个const函数中。</li>
+<li><p>我们知道，如果类的成员函数不会改变对象的状态，那么这个成员函数一般会声明成const的。但是，有些时候，我们需要在const的函数里面修改一些跟类状态无关的数据成员，那么这个数据成员就应该被mutalbe来修饰。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">class ClxTest&#123;</span><br><span class="line">public:</span><br><span class="line">    void Output() const;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">void ClxTest::Output() const&#123;</span><br><span class="line">    cout &lt;&lt; &quot;Output for test!&quot; &lt;&lt; endl;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void OutputTest(const ClxTest&amp; lx)&#123;</span><br><span class="line">    lx.Output();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>类ClxTest的成员函数Output是用来输出的，不会修改类的状态，所以被声明为const的。</p>
+</li>
+<li>函数OutputTest也是用来输出的，里面调用了对象lx的Output输出方法，为了防止在函数中调用其他成员函数修改任何成员变量，所以参数也被const修饰。</li>
+<li>如果现在，我们要增添一个功能：计算每个对象的输出次数。如果用来计数的变量是普通的变量的话，那么在const成员函数Output里面是不能修改该变量的值的；而该变量跟对象的状态无关，所以应该为了修改该变量而去掉Output的const属性。这个时候，就该我们的mutable出场了——只要用mutalbe来修饰这个变量，所有问题就迎刃而解了。<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">using namespace std;</span><br><span class="line">class ClxTest&#123;</span><br><span class="line">public:</span><br><span class="line">    ClxTest();</span><br><span class="line">    ~ClxTest();</span><br><span class="line">    void Output() const;</span><br><span class="line">    int GetOutputTimes() const;</span><br><span class="line">private:</span><br><span class="line">    mutable int m_Times;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">ClxTest::ClxTest()&#123;</span><br><span class="line">    m_Times = 0;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">ClxTest::~ClxTest() &#123;&#125;</span><br><span class="line"></span><br><span class="line">void ClxTest::Output() const &#123;</span><br><span class="line">    cout &lt;&lt; &quot;Output for test!&quot; &lt;&lt; endl;</span><br><span class="line">    m_Times++;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int ClxTest::GetOutputTimes() const &#123;</span><br><span class="line">    return m_Times;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void test(const ClxTest &amp;lx)&#123;</span><br><span class="line">    cout &lt;&lt; lx.GetOutputTimes() &lt;&lt; endl;</span><br><span class="line">    lx.Output();</span><br><span class="line">    cout &lt;&lt; lx.GetOutputTimes() &lt;&lt; endl;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h3 id="一个线程安全的Counter示例"><a href="#一个线程安全的Counter示例" class="headerlink" title="一个线程安全的Counter示例"></a>一个线程安全的Counter示例</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &lt;boost/utility.hpp&gt;</span><br><span class="line">#include &lt;boost/noncopyable.hpp&gt;</span><br><span class="line">#include &quot;muduo/base/Mutex.h&quot;</span><br><span class="line"></span><br><span class="line">using namespace std;</span><br><span class="line">using namespace boost;</span><br><span class="line"></span><br><span class="line">// A thread-safe counter</span><br><span class="line">class Counter : boost::noncopyable&#123;</span><br><span class="line">    //copy-ctor and assignment should be private by defalut for a class</span><br><span class="line">public:</span><br><span class="line">    Counter() : value_(0) &#123;&#125;</span><br><span class="line">    int64_t value() const;</span><br><span class="line">    int64_t getAndIncrease();</span><br><span class="line"></span><br><span class="line">private:</span><br><span class="line">    int64_t value_;</span><br><span class="line">    mutable muduo::MutexLock mutex_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">int64_t Counter::value() const &#123;</span><br><span class="line">    muduo::MutexLockGuard lock(mutex_); //lock的析构会晚于返回对象的构造</span><br><span class="line">    return value_;                      //因此有效地保护了这个共享数据</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int64_t Counter::getAndIncrease() &#123;</span><br><span class="line">    muduo::MutexLockGuard lock(mutex_);</span><br><span class="line">    int64_t ret = ++value_;</span><br><span class="line">    return ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>如果Counter是动态创建的并通过指针来访问，那么对象销毁的race condition依然存在。<h3 id="做到线程安全的对象构造——在构造期间不要泄露this指针"><a href="#做到线程安全的对象构造——在构造期间不要泄露this指针" class="headerlink" title="做到线程安全的对象构造——在构造期间不要泄露this指针"></a>做到线程安全的对象构造——在构造期间不要泄露this指针</h3></li>
+<li>别的线程可能通过this指针访问尚未构造完成的对象。</li>
+<li>不要在构造函数中注册任何回调</li>
+<li>不要在构造函数中把this传给跨线程的对象</li>
+<li><p>最后一行也不行，因为可能是个基类，基类先于派生类构造，基类构造完了派生类还处于构造中。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">class Foo : public Observer&#123;</span><br><span class="line">public:</span><br><span class="line">    Foo();</span><br><span class="line">    virtual void update();</span><br><span class="line">    void observe(Observable *s)&#123;</span><br><span class="line">        s-&gt;register_(this);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line">Foo *pFoo = new Foo;</span><br><span class="line">Observable *s = getSubject();</span><br><span class="line">pFoo-&gt;observe(s);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>上面就是二段式构造</p>
+</li>
+<li>对象构造多线程安全很简单，可是析构很难，因为对象内部的mutex的成员将会被销毁。</li>
+<li>delete对象之后把指针置为NULL根本没用，如果一个程序要靠这个来防止二次释放，说明代码逻辑出了问题。具体实例可看P25</li>
+<li>作为class数据成员的MutexLock只能用于同步本class的其他数据成员的读和写，不能保护安全的析构，因为MutexLock的生命期最多与对象一样长。</li>
+<li>当调用到基类析构函数的时候，派生类对象的那部分以及析构了，那么基类对象拥有的MutexLock不能保护整个析构过程。</li>
+<li>如果要同时读写一个class的两个对象，由潜在的死锁可能。比如线程A调用fun(m, n)，线程B调用fun(n, m)，一个函数如果要锁住相同类型的多个对象，为了保证始终按相同的顺序加锁，我们可以比较mutex对象的地址，始终先加锁地址较小的mutex。</li>
+<li>一个动态创建的对象是否还活着，光看指针是看不出来的。</li>
+<li>一个简单的方法是只创建不销毁，使用一个对象池暂存用过的对象，申请新对象时利用现有的，用过后放回池子里。该方法能简单防止访问到失效的对象。</li>
+<li>要想安全地销毁对象，最好在别的线程都看不到的情况下，偷偷的做。（这正是垃圾回收的原理，所有人都用不到的东西一定是垃圾）</li>
+<li>另一个优雅的解决方法是使用计数型智能指针：shared_ptr/weak_ptr</li>
+<li>shared_ptr控制对象的生命期。shared_ptr是强引用，只要有一个指向x对象的shared_ptr存在，该x对象就不会析构。当指向对象x的最后一个shared_ptr析构或reset()的时候，x保证会被销毁。</li>
+<li>weak_ptr不控制对象的生命期，但是它知道对象是否还活着。如果对象还活着，那么它可以提升（promote）为有效的shared_ptr；如果对象已经死了，提升会失败，返回一个空的shared_ptr。“提升/lock()”这个行为是线程安全的。还可用于解决循环引用问题：父与子两个对象各使用一个shared_ptr指向对方，此时两个的引用计数都为2，当退出时，shared_ptr只是减1，结果非0，内存得不到释放，造成内存泄漏。使用weak_ptr可以打破这样的循环引用。由于弱引用不更改引用计数，类似普通指针，只要把循环引用的一方使用弱引用，即可解除循环引用。</li>
+<li>两种指针的计数操作是原子操作，没有用锁，性能很棒。<h3 id="C-可能遇到的内存问题"><a href="#C-可能遇到的内存问题" class="headerlink" title="C++可能遇到的内存问题"></a>C++可能遇到的内存问题</h3></li>
+<li>缓冲区溢出：用std::vector<char>/std::string或自己编写的Buffer class来管理缓冲区，自动记住缓冲区的长度，并通过成员函数而不是裸指针来修改缓冲区。</char></li>
+<li>空悬指针/野指针：使用shared_ptr/weak_ptr智能指针。</li>
+<li>重复释放：用scoped_ptr，只在对象析构的时候释放一次。</li>
+<li>内存泄漏：用scoped_ptr，对象析构的时候自动释放内存。</li>
+<li>不配对的<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">- 内存碎片</span><br><span class="line">### scoped_ptr</span><br><span class="line">- scoped_ptr是一个类似于auto_ptr的智能指针，它包装了new操作符在堆上分配的动态对象，能够保证动态创建的对象在任何时候都可以被正确的删除。但是scoped_ptr的所有权更加严格，不能转让，一旦scoped_pstr获取了对象的管理权，你就无法再从它那里取回来。</span><br><span class="line">- scoped_ptr同时把拷贝构造函数和赋值操作都声明为私有的，禁止对智能指针的复制操作，保证了被它管理的指针不能被转让所有权。</span><br><span class="line">- scoped_ptr的用法与普通的指针几乎没什么区别；最大的差别在于你不必再记得在指针上调用delete，还有复制是不允许的。典型的指针操作(operator* 和 operator-&gt;)都被重载了，并提供了和裸指针一样的语法。用scoped_ptr和用裸指针一样快，也没有大小上的增加，因此它们可以广泛使用。使用boost::scoped_ptr时，包含头文件”boost/scoped_ptr.hpp”. 在声明一个scoped_ptr时，用被指物的类型来指定类模板的参数。例如，以下是一个包含std::string指针的scoped_ptr： </span><br><span class="line">boost::scoped_ptr p(new std::string(“Hello”)); 当scoped_ptr被销毁时，它对它所拥有的指针调用delete 。</span><br><span class="line">- 在现代的C++程序中一般不会出现delete语句，资源（包括复杂对象本身）都是通过对象（智能指针或容器）来管理的，不需要程序员还为此操心。</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>#include <iostream></iostream></p>
+<p>#include <vector></vector></p>
+<p>#include “muduo/base/Mutex.h”</p>
+<p>#include <memory></memory></p>
+<p>#include &lt;boost/scoped_ptr.hpp&gt;</p>
+<p>using namespace std;<br>using namespace boost;</p>
+<p>class Observer{<br>public:<br>    virtual ~Observer();<br>    virtual void update() = 0;<br>};</p>
+<p>class Observable{ //not 100% thread safe!!<br>public:<br>    void register_(weak_ptr<observer> x); //参数类型可用const weak_ptr<observer>&amp;<br>    void notifyObserves();<br>private:<br>    mutable muduo::MutexLock mutex_;<br>    vector&lt;weak_ptr<observer> &gt; observers_;<br>    typedef vector&lt;weak_ptr<observer> &gt;::iterator Iterator;<br>};</observer></observer></observer></observer></p>
+<p>void Observable::notifyObserves() {<br>    muduo::MutexLockGuard lock(mutex_);<br>    Iterator it = observers_.begin();<br>    while (it != observers_.end()){<br>        shared_ptr<observer> obj(it-&gt;lock()); //尝试提升，这一步是线程安全的<br>        if(obj){<br>            obj-&gt;update();<br>            ++it;<br>        }<br>        else<br>            it = observers_.erase(it); //对象已经销毁，从容器中拿掉weak_ptr<br>    }<br>}<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">- shared_ptr的线程安全级别和内建类型、标准库容器、std::string一样，即：</span><br><span class="line">- 一个shared_ptr对象实体可被多个线程同时读取。</span><br><span class="line">- 两个shared_ptr对象实体可以被两个线程同时写入，“析构”算写操作。</span><br><span class="line">- 如果要从多个线程读写同一个shared_ptr对象，那么需要加锁。</span><br></pre></td></tr></table></figure></observer></p>
+<p>muduo::MutexLock mutex;<br>shared_ptr<foo> globalPtr;<br>void doit(const shared_ptr<foo>&amp; pFoo);</foo></foo></p>
+<p>void read(){<br>    shared_ptr<foo> localPtr;<br>    {<br>        muduo::MutexLockGuard lock(mutex);<br>        localPtr = globalPtr; //read globalPtr<br>    }<br>    // use localPtr since here<br>    doit(localPtr);<br>}</foo></p>
+<p>void write(){<br>    shared_ptr<foo> newPtr(new Foo);<br>    {<br>        muduo::MutexLockGuard lock(mutex);<br>        globalPtr = newPtr;<br>    }<br>    doit(newPtr);<br>}<br><code>`</code></foo></p>
+<ul>
+<li>只要有一个指向x对象的shared_ptr存在，该对象就不会析构。如果不小心遗留了一个拷贝，那么对象就会永远存在了。</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <div>
+  
+    
+<div style="text-align:center;color: #ccc;font-size:14px;">
+------ 本文结束 ------</div>
+
+  
+</div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Thread/" rel="tag"># Thread</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">ZhouDaxia</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">1</span>
+                    <span class="site-state-item-name">Artikel</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                    <span class="site-state-item-count">1</span>
+                    <span class="site-state-item-name">Kategorien</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">2</span>
+                    <span class="site-state-item-name">Tags</span>
+                  
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/ZhouDaxia929" title="GitHub &rarr; https://github.com/ZhouDaxia929" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="mailto:zhoudongxu929@outlook.com" title="E-Mail &rarr; mailto:zhoudongxu929@outlook.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#boost的noncopyable"><span class="nav-number">1.</span> <span class="nav-text">boost的noncopyable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mutable关键字"><span class="nav-number">2.</span> <span class="nav-text">mutable关键字</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一个线程安全的Counter示例"><span class="nav-number">3.</span> <span class="nav-text">一个线程安全的Counter示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#做到线程安全的对象构造——在构造期间不要泄露this指针"><span class="nav-number">4.</span> <span class="nav-text">做到线程安全的对象构造——在构造期间不要泄露this指针</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#C-可能遇到的内存问题"><span class="nav-number">5.</span> <span class="nav-text">C++可能遇到的内存问题</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <span id="timeDate">载入天数...</span><span id="times">载入时分秒...</span>
+<script>
+    var now = new Date(); 
+    function createtime() { 
+        var grt= new Date("11/21/2019 12:00:00");//此处修改你的建站时间或者网站上线时间 
+        now.setTime(now.getTime()+250); 
+        days = (now - grt ) / 1000 / 60 / 60 / 24; dnum = Math.floor(days); 
+        hours = (now - grt ) / 1000 / 60 / 60 - (24 * dnum); hnum = Math.floor(hours); 
+        if(String(hnum).length ==1 ){hnum = "0" + hnum;} minutes = (now - grt ) / 1000 /60 - (24 * 60 * dnum) - (60 * hnum); 
+        mnum = Math.floor(minutes); if(String(mnum).length ==1 ){mnum = "0" + mnum;} 
+        seconds = (now - grt ) / 1000 - (24 * 60 * 60 * dnum) - (60 * 60 * hnum) - (60 * mnum); 
+        snum = Math.round(seconds); if(String(snum).length ==1 ){snum = "0" + snum;} 
+        document.getElementById("timeDate").innerHTML = "本站已安全运行 "+dnum+" 天 "; 
+        document.getElementById("times").innerHTML = hnum + " 小时 " + mnum + " 分 " + snum + " 秒"; 
+    } 
+setInterval("createtime()",250);
+</script>
+
+
+<div class="copyright">&copy; 2019 – <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">true</span>
+
+  
+
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-user"></i>
+    </span>
+    <span class="site-uv" title="Total Visitors">
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+    </span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+  
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" title="Total Views">
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+      }
+      else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+      }
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+
+  
+
+  
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
